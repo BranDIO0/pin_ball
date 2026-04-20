@@ -16,6 +16,7 @@ function init() {
     buildFlippers();
     buildPlunger();
     buildBall();
+    buildDropTargets();
 
     // Preview-Szene (Detailansicht) initialisieren
     initPreviewScene();
