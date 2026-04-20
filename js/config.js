@@ -6,10 +6,13 @@ let world;
 let ballMesh, ballBody;
 let leftFlipperMesh, leftFlipperBody, leftHinge;
 let rightFlipperMesh, rightFlipperBody, rightHinge;
-let plungerMesh;
+let plungerMesh, plungerBody;
 
 let score = 0;
 let scoreElement;
+let lives = 3;
+let livesElement;
+const MAX_LIVES = 3;
 
 // Variablen Preview/Detailansicht
 let previewScene, previewCamera, previewRenderer, previewBallMesh;
@@ -33,8 +36,8 @@ const meshes = [];
 
 // === KONSTANTEN ===
 const TIME_STEP = 1 / 60;
-const FLIPPER_WIDTH = 2.4;
+const FLIPPER_WIDTH = 2.2;
 const FLIPPER_HEIGHT = 0.8;
-const FLIPPER_DEPTH = 0.5;
+const FLIPPER_DEPTH = 0.3;
 const BALL_RADIUS = 0.4;
 const BUMPER_RADIUS = 0.8;

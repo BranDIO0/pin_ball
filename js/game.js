@@ -31,8 +31,8 @@ function buildPlayfield() {
     addWall(-1, 0.5, -9.5, 9, 2, 1); // Oben
     addWall(4, 0.5, 1.5, 0.5, 2, 17); // Plunger-Trennwand
     addWall(4.5, 0.5, -8.5, 4, 2, 0.5, -Math.PI / 4); // Deflektor
-    addWall(-3.8, 0.5, 7.5, 3, 2, 0.5, -Math.PI / 5); // Trichter Links
-    addWall(2.8, 0.5, 7.5, 3, 2, 0.5, Math.PI / 5);  // Trichter Rechts
+    addWall(-3.8, 0.5, 6.9, 3, 2, 0.5, -Math.PI / 5); // Trichter Links
+    addWall(2.8, 0.5, 6.9, 3, 2, 0.5, Math.PI / 5);  // Trichter Rechts
 }
 
 // === BUMPER BAU ===
@@ -65,6 +65,7 @@ function buildFlippers() {
     const width = FLIPPER_WIDTH;
     const height = FLIPPER_HEIGHT;
     const depth = FLIPPER_DEPTH;
+    const GAP = 1.5; // Abstand zwischen Flippern
 
     // Linker Flipper
     const leftGeo = new THREE.BoxGeometry(width, height, depth);
@@ -74,10 +75,10 @@ function buildFlippers() {
 
     leftFlipperBody = new CANNON.Body({ mass: 5, material: physicsMaterials.flipper });
     leftFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)), new CANNON.Vec3(width/2, 0, 0));
-    leftFlipperBody.position.set(-2.5, 0.5, 8.5); 
+    leftFlipperBody.position.set(-2.3 - GAP/2, 0.5, 7.5); 
     
     const leftBase = new CANNON.Body({ mass: 0 });
-    leftBase.position.set(-2.5, 0.5, 8.5);
+    leftBase.position.set(-2.3 - GAP/2, 0.5, 7.5);
     world.addBody(leftBase);
 
     leftHinge = new CANNON.HingeConstraint(leftBase, leftFlipperBody, {
@@ -95,10 +96,10 @@ function buildFlippers() {
 
     rightFlipperBody = new CANNON.Body({ mass: 5, material: physicsMaterials.flipper });
     rightFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)), new CANNON.Vec3(-width/2, 0, 0));
-    rightFlipperBody.position.set(1.5, 0.5, 8.5);
+    rightFlipperBody.position.set(1.3 + GAP/2, 0.5, 7.5);
     
     const rightBase = new CANNON.Body({ mass: 0 });
-    rightBase.position.set(1.5, 0.5, 8.5);
+    rightBase.position.set(1.3 + GAP/2, 0.5, 7.5);
     world.addBody(rightBase);
 
     rightHinge = new CANNON.HingeConstraint(rightBase, rightFlipperBody, {
@@ -111,11 +112,36 @@ function buildFlippers() {
 
 // === PLUNGER BAU ===
 function buildPlunger() {
-    const geo = new THREE.BoxGeometry(0.8, 1, 1);
-    plungerMesh = new THREE.Mesh(geo, materialConfig.plunger);
+    plungerMesh = new THREE.Group();
+
+    // Schaft (Zylinder)
+    const shaftGeo = new THREE.CylinderGeometry(0.12, 0.12, 2.5, 16);
+    shaftGeo.rotateX(Math.PI / 2);
+    const shaftMesh = new THREE.Mesh(shaftGeo, materialConfig.wall);
+    shaftMesh.position.set(0, 0, 0.5);
+    shaftMesh.castShadow = true;
+    plungerMesh.add(shaftMesh);
+
+    // Kopf (dickeres Ende)
+    const tipGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.4, 16);
+    tipGeo.rotateX(Math.PI / 2);
+    const tipMesh = new THREE.Mesh(tipGeo, materialConfig.plunger);
+    tipMesh.position.set(0, 0, -0.9);
+    tipMesh.castShadow = true;
+    plungerMesh.add(tipMesh);
+
     plungerMesh.position.set(5, 0.5, 8.5);
-    plungerMesh.castShadow = true;
-    scene.add(plungerMesh);
+
+    plungerBody = new CANNON.Body({
+        mass: 0,
+        type: CANNON.Body.KINEMATIC,
+        material: physicsMaterials.wall
+    });
+    // Physik-Box passend zum Kopf (Halbe Ausdehnung: 0.35, 0.35, 0.2)
+    plungerBody.addShape(new CANNON.Box(new CANNON.Vec3(0.35, 0.35, 0.2)), new CANNON.Vec3(0, 0, -0.9));
+    plungerBody.position.set(5, 0.5, 8.5);
+
+    createEntity(plungerMesh, plungerBody);
 }
 
 // === BALL BAU ===
@@ -175,7 +201,11 @@ function updateFlippers() {
 
 // === PLUNGER LOGIK ===
 function updatePlunger() {
-    plungerMesh.position.z = 8.5 + (state.plungerPull * 1.5);
+    const newZ = 8.5 + (state.plungerPull * 1.5);
+    plungerMesh.position.z = newZ;
+    if (plungerBody) {
+        plungerBody.position.z = newZ;
+    }
 }
 
 function firePlunger(powerFactor) {
@@ -188,6 +218,40 @@ function firePlunger(powerFactor) {
 // === GAME LOGIC UPDATE ===
 function updateGameLogic() {
     if (ballBody.position.z > 12) {
-        resetBall();
+        lives--;
+        updateLivesDisplay();
+        if (lives <= 0) {
+            gameOver();
+        } else {
+            resetBall();
+        }
     }
+}
+
+// === LIVES & GAME OVER ===
+function updateLivesDisplay() {
+    if (livesElement) {
+        livesElement.innerText = lives.toString();
+    }
+}
+
+function gameOver() {
+    // Game Over UI anzeigen und finalen Score setzen
+    document.getElementById('final-score').innerText = score.toString().padStart(6, '0');
+    document.getElementById('game-over-screen').style.display = 'flex';
+    
+    resetBall(); // Kugel sofort an den Start zurücksetzen, damit sie nicht weiter fällt
+}
+
+function restartGame() {
+    // Werte zurücksetzen
+    lives = MAX_LIVES;
+    score = 0;
+    updateLivesDisplay();
+    if (scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
+    resetBall();
+    if (typeof dropTargetBank !== 'undefined') dropTargetBank.resetAll();
+    
+    // Screen ausblenden und weiterspielen
+    document.getElementById('game-over-screen').style.display = 'none';
 }

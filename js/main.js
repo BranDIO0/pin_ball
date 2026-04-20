@@ -3,6 +3,7 @@
 function init() {
     document.getElementById('loading').style.display = 'none';
     scoreElement = document.getElementById('score');
+    livesElement = document.getElementById('lives');
 
     // Initialisierungen
     initializeBallTypes();
@@ -15,6 +16,7 @@ function init() {
     buildFlippers();
     buildPlunger();
     buildBall();
+    buildDropTargets();
 
     // Preview-Szene (Detailansicht) initialisieren
     initPreviewScene();
