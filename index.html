@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Flipper Prototyp - Ballauswahl</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; 
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .top-bar {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between; /* Angepasst für Button und Score */
+            align-items: flex-start;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+            pointer-events: auto; /* Erlaubt Klicks in der Top-Bar */
+            position: relative; /* Hinzugefügt: Damit z-index greift */
+            z-index: 10; /* Hinzugefügt: Legt die Leiste über die Touch-Zonen */
+        }
+
+        .score-board {
+            background: rgba(10, 10, 20, 0.8);
+            border: 2px solid #00e5ff;
+            border-radius: 10px;
+            padding: 10px 30px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.4), inset 0 0 10px rgba(0, 229, 255, 0.2);
+            margin: 0 auto;
+        }
+
+        .score-label {
+            display: block;
+            color: #ff007f;
+            font-size: 12px;
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+
+        .score-value {
+            color: #00e5ff;
+            font-size: 32px;
+            font-weight: 700;
+            text-shadow: 0 0 10px #00e5ff;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            background: #ff007f;
+            color: white;
+            border: 2px solid #ff8800;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+            transition: all 0.2s;
+            pointer-events: auto;
+        }
+        .btn:hover, .btn:active {
+            background: #ff8800;
+            border-color: #ff007f;
+            box-shadow: 0 0 15px rgba(255, 136, 0, 0.8);
+            transform: scale(1.05);
+        }
+
+        /* --- Touch-Zonen für Flipper --- */
+        .touch-zones {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            z-index: 1; 
+        }
+
+        .touch-area {
+            flex: 1;
+            pointer-events: auto; 
+            display: flex;
+            align-items: flex-end;
+            padding: 30px;
+            transition: background 0.1s;
+        }
+
+        .touch-area .hint {
+            color: rgba(255, 255, 255, 0.15);
+            font-size: 24px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        #left-touch {
+            justify-content: flex-start;
+            background: linear-gradient(90deg, rgba(255,0,127,0.05) 0%, rgba(0,0,0,0) 100%);
+        }
+        #left-touch.active { background: linear-gradient(90deg, rgba(255,0,127,0.2) 0%, rgba(0,0,0,0) 100%); }
+        
+        #right-touch {
+            justify-content: flex-end;
+            background: linear-gradient(-90deg, rgba(0,229,255,0.05) 0%, rgba(0,0,0,0) 100%);
+        }
+        #right-touch.active { background: linear-gradient(-90deg, rgba(0,229,255,0.2) 0%, rgba(0,0,0,0) 100%); }
+
+        /* --- Plunger --- */
+        #plunger-container {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 200px;
+            pointer-events: auto;
+            z-index: 20; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(0,0,0,0.6);
+            border-radius: 30px;
+            border: 2px solid #ff8800;
+            box-shadow: 0 0 15px rgba(255, 136, 0, 0.3);
+        }
+
+        .plunger-track {
+            width: 10px;
+            flex-grow: 1;
+            background: #222;
+            border-radius: 5px;
+            margin: 20px 0;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+
+        #plunger-handle {
+            position: absolute;
+            top: 0;
+            width: 44px;
+            height: 44px;
+            background: radial-gradient(circle, #ffaa00 0%, #ff5500 100%);
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 15px #ff8800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .plunger-hint {
+            color: #ff8800;
+            font-size: 11px;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            pointer-events: none;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+            z-index: 1000;
+        }
+
+        /* --- Ball Auswahl Modal --- */
+        #ball-modal {
+            display: none; /* Initial versteckt */
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 10, 0.95);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto; /* Fängt Klicks ab */
+        }
+
+        .modal-title {
+            color: #00e5ff;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+
+        .modal-subtitle {
+            color: #ccc;
+            font-size: 12px;
+            margin-bottom: 20px;
+            font-family: sans-serif;
+            letter-spacing: 1px;
+        }
+
+        /* Container für das 3D Preview Rendering */
+        #preview-canvas-container {
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            border: 4px solid #ff007f;
+            box-shadow: 0 0 30px rgba(255, 0, 127, 0.4), inset 0 0 20px rgba(0,0,0,0.8);
+            background: radial-gradient(circle, #222 0%, #000 100%);
+            margin-bottom: 30px;
+            position: relative;
+            cursor: grab;
+            overflow: hidden;
+        }
+        #preview-canvas-container:active {
+            cursor: grabbing;
+        }
+
+        .ball-options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 90%;
+        }
+
+        .ball-opt-btn {
+            background: #111;
+            color: #fff;
+            border: 2px solid #333;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: 'Orbitron';
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .ball-opt-btn.active {
+            background: #00e5ff;
+            color: #000;
+            border-color: #fff;
+            box-shadow: 0 0 15px #00e5ff;
+        }
+
+    </style>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Cannon.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <!-- Neuer Button für die Ball-Auswahl -->
+            <button class="btn" onclick="openBallModal()">BÄLLE</button>
+            
+            <div class="score-board">
+                <span class="score-label">SCORE</span>
+                <span id="score" class="score-value">000000</span>
+            </div>
+
+            <!-- Platzhalter für Layout-Balance -->
+            <div style="width: 80px;"></div>
+        </div>
+
+        <div class="touch-zones">
+            <div id="left-touch" class="touch-area">
+                <div class="hint">L-FLIPPER</div>
+            </div>
+            <div id="right-touch" class="touch-area">
+                <div class="hint">R-FLIPPER</div>
+            </div>
+        </div>
+
+        <div id="plunger-container">
+            <div class="plunger-track">
+                <div id="plunger-handle">▼</div>
+            </div>
+            <div class="plunger-hint">ZIEHEN</div>
+        </div>
+    </div>
+
+    <!-- Modal für Ballauswahl & Detailansicht -->
+    <div id="ball-modal">
+        <div class="modal-title">BALL LABOR</div>
+        <div class="modal-subtitle">ZUM DREHEN WISCHEN</div>
+        
+        <div id="preview-canvas-container"></div>
+        
+        <div class="ball-options" id="ball-options-container">
+            <!-- Buttons werden via JS generiert -->
+        </div>
+
+        <button class="btn" onclick="closeBallModal()" style="font-size: 18px; padding: 12px 30px;">ZURÜCK ZUM SPIEL</button>
+    </div>
+
+    <div id="loading">Lade Physik & 3D...</div>
+
+    <script>
+        // === Globale Variablen Hauptspiel ===
+        let scene, camera, renderer;
+        let world;
+        let ballMesh, ballBody;
+        let leftFlipperMesh, leftFlipperBody, leftHinge;
+        let rightFlipperMesh, rightFlipperBody, rightHinge;
+        let plungerMesh;
+        
+        let score = 0;
+        let scoreElement; 
+
+        // === Variablen Preview/Detailansicht ===
+        let previewScene, previewCamera, previewRenderer, previewBallMesh;
+        let isModalOpen = false;
+        let previewDrag = false;
+        let previousMousePos = { x: 0, y: 0 };
+        let previewAutoRotate = true;
+
+        // Funktion zum Erstellen von Ball-Texturen mit Mustern
+        function createBallTexture(baseColor, pattern = 'stripes') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            
+            // Basis-Hintergrund
+            ctx.fillStyle = baseColor;
+            ctx.fillRect(0, 0, 512, 512);
+            
+            if (pattern === 'stripes') {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 20;
+                for (let i = 0; i < 512; i += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, 512);
+                    ctx.stroke();
+                }
+            } else if (pattern === 'dots') {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                for (let y = 40; y < 512; y += 80) {
+                    for (let x = 40; x < 512; x += 80) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 20, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else if (pattern === 'grid') {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 15;
+                for (let i = 0; i < 512; i += 50) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, 512);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(512, i);
+                    ctx.stroke();
+                }
+            } else if (pattern === 'spiral') {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 10;
+                ctx.beginPath();
+                for (let i = 0; i < 100; i += 0.5) {
+                    const angle = i * 0.1;
+                    const radius = i * 2;
+                    const x = 256 + Math.cos(angle) * radius;
+                    const y = 256 + Math.sin(angle) * radius;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            } else if (pattern === 'waves') {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+                ctx.lineWidth = 15;
+                for (let y = 0; y < 512; y += 30) {
+                    ctx.beginPath();
+                    for (let x = 0; x < 512; x += 10) {
+                        const waveY = y + Math.sin(x * 0.02) * 15;
+                        if (x === 0) ctx.moveTo(x, waveY);
+                        else ctx.lineTo(x, waveY);
+                    }
+                    ctx.stroke();
+                }
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearFilter;
+            return texture;
+        }
+
+        // Verschiedene Ball-Optionen (Materialien mit Texturen)
+        const ballTypes = [
+            { id: 'chrome', name: 'Chrom', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#ffffff', 'stripes'), shininess: 150, specular: 0xffffff }) },
+            { id: 'gold', name: 'Gold', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#ffd700', 'dots'), shininess: 150, specular: 0xffdf00 }) },
+            { id: 'neon-green', name: 'Neon-Grün', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#00ff00', 'stripes'), emissive: 0x00aa00, shininess: 100 }) },
+            { id: 'neon-pink', name: 'Neon-Pink', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#ff00ff', 'grid'), emissive: 0x880088, shininess: 100 }) },
+            { id: 'neon-cyan', name: 'Neon-Cyan', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#00ffff', 'dots'), emissive: 0x008888, shininess: 100 }) },
+            { id: 'lava', name: 'Magma', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#ff3300', 'waves'), emissive: 0x550000, shininess: 50, specular: 0xff8800 }) },
+            { id: 'electric-blue', name: 'Electric-Blau', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#0080ff', 'spiral'), emissive: 0x0040aa, shininess: 120 }) },
+            { id: 'royal-purple', name: 'Royal-Lila', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#8800ff', 'grid'), emissive: 0x4400aa, shininess: 110 }) },
+            { id: 'emerald', name: 'Smaragd', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#00cc88', 'dots'), shininess: 140, specular: 0x00ff99 }) },
+            { id: 'ruby-red', name: 'Rubin-Rot', material: new THREE.MeshPhongMaterial({ map: createBallTexture('#cc0000', 'waves'), emissive: 0x660000, shininess: 130 }) }
+        ];
+        let currentBallIndex = 0;
+
+        // Haupt-Materialien
+        const materialConfig = {
+            board: new THREE.MeshPhongMaterial({ color: 0x11111a, shininess: 10 }),
+            wall: new THREE.MeshPhongMaterial({ color: 0x00e5ff, shininess: 50, transparent: true, opacity: 0.8 }),
+            flipper: new THREE.MeshPhongMaterial({ color: 0xff007f, shininess: 100 }),
+            ball: ballTypes[currentBallIndex].material, // Startet mit Chrom
+            plunger: new THREE.MeshPhongMaterial({ color: 0xff8800 }),
+            bumper: new THREE.MeshPhongMaterial({ color: 0x39ff14, shininess: 100 })
+        };
+
+        // Cannon Materialien
+        let physicsMaterials = {};
+        const state = { leftFlipper: false, rightFlipper: false, plungerDrag: false, plungerStartY: 0, plungerPull: 0 };
+        const bodies = [];
+        const meshes = [];
+
+        function init() {
+            document.getElementById('loading').style.display = 'none';
+            scoreElement = document.getElementById('score');
+
+            // 1. Haupt-Szene Setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 20, 50);
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 18, 14);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 20, 10);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.left = -15;
+            dirLight.shadow.camera.right = 15;
+            dirLight.shadow.camera.top = 15;
+            dirLight.shadow.camera.bottom = -15;
+            scene.add(dirLight);
+
+            // 2. Cannon.js Setup
+            world = new CANNON.World();
+            world.broadphase = new CANNON.NaiveBroadphase();
+            world.solver.iterations = 20;
+            world.gravity.set(0, -9.82, 8); 
+
+            physicsMaterials.default = new CANNON.Material();
+            physicsMaterials.ball = new CANNON.Material();
+            physicsMaterials.wall = new CANNON.Material();
+            physicsMaterials.flipper = new CANNON.Material();
+            physicsMaterials.bumper = new CANNON.Material();
+
+            world.addContactMaterial(new CANNON.ContactMaterial(physicsMaterials.ball, physicsMaterials.wall, { friction: 0.0, restitution: 0.4 }));
+            world.addContactMaterial(new CANNON.ContactMaterial(physicsMaterials.ball, physicsMaterials.flipper, { friction: 0.1, restitution: 0.6 }));
+            world.addContactMaterial(new CANNON.ContactMaterial(physicsMaterials.ball, physicsMaterials.bumper, { friction: 0.0, restitution: 1.2 }));
+
+            // 3. Bauen
+            buildPlayfield();
+            buildBumpers();
+            buildFlippers();
+            buildPlunger();
+            buildBall();
+
+            // 4. Preview-Szene (Detailansicht) initialisieren
+            initPreviewScene();
+            generateBallOptionsUI();
+
+            // 5. Events & Loop
+            setupInput();
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        // === PREVIEW SZENE LOGIK (Ball Detailansicht) ===
+        function initPreviewScene() {
+            const container = document.getElementById('preview-canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            previewScene = new THREE.Scene();
+            
+            previewCamera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+            previewCamera.position.z = 4.5;
+
+            // Transparenter Background, damit das CSS durchscheint
+            previewRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            previewRenderer.setSize(width, height);
+            container.appendChild(previewRenderer.domElement);
+
+            // Preview Beleuchtung (etwas dramatischer)
+            previewScene.add(new THREE.AmbientLight(0xffffff, 0.5));
+            
+            const spotLight = new THREE.SpotLight(0xffffff, 1.2);
+            spotLight.position.set(5, 5, 5);
+            previewScene.add(spotLight);
+
+            const backLight = new THREE.DirectionalLight(0x00e5ff, 0.8);
+            backLight.position.set(-5, -5, -5);
+            previewScene.add(backLight);
+
+            // Großer Preview-Ball
+            const geo = new THREE.SphereGeometry(1.5, 64, 64);
+            previewBallMesh = new THREE.Mesh(geo, ballTypes[currentBallIndex].material);
+            previewScene.add(previewBallMesh);
+
+            // Drag to Rotate Logik
+            container.addEventListener('pointerdown', (e) => {
+                previewDrag = true;
+                previewAutoRotate = false; // Auto-Rotation stoppen beim Anfassen
+                previousMousePos = { x: e.offsetX, y: e.offsetY };
+                container.setPointerCapture(e.pointerId);
+            });
+
+            container.addEventListener('pointermove', (e) => {
+                if (previewDrag) {
+                    const deltaMove = {
+                        x: e.offsetX - previousMousePos.x,
+                        y: e.offsetY - previousMousePos.y
+                    };
+
+                    // Rotation anwenden (X-Bewegung dreht um Y-Achse, Y-Bewegung dreht um X-Achse)
+                    previewBallMesh.rotation.y += deltaMove.x * 0.01;
+                    previewBallMesh.rotation.x += deltaMove.y * 0.01;
+
+                    previousMousePos = { x: e.offsetX, y: e.offsetY };
+                }
+            });
+
+            const stopDrag = (e) => {
+                previewDrag = false;
+                container.releasePointerCapture(e.pointerId);
+                // Auto-Rotation nach kurzer Verzögerung wieder starten
+                setTimeout(() => { if(!previewDrag) previewAutoRotate = true; }, 2000);
+            };
+
+            container.addEventListener('pointerup', stopDrag);
+            container.addEventListener('pointercancel', stopDrag);
+        }
+
+        function generateBallOptionsUI() {
+            const container = document.getElementById('ball-options-container');
+            container.innerHTML = '';
+            
+            ballTypes.forEach((ball, index) => {
+                const btn = document.createElement('button');
+                btn.className = `ball-opt-btn ${index === currentBallIndex ? 'active' : ''}`;
+                btn.innerText = ball.name;
+                btn.onclick = () => selectBallType(index);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectBallType(index) {
+            currentBallIndex = index;
+            const selectedMat = ballTypes[index].material;
+            
+            // Preview Ball updaten
+            previewBallMesh.material = selectedMat;
+            
+            // Echten Spiel-Ball updaten
+            ballMesh.material = selectedMat;
+
+            // UI Buttons aktualisieren
+            generateBallOptionsUI();
+        }
+
+        function openBallModal() {
+            isModalOpen = true;
+            document.getElementById('ball-modal').style.display = 'flex';
+            
+            // Die Größe des Preview-Containers wird erst nach 'display: flex' korrekt berechnet
+            const container = document.getElementById('preview-canvas-container');
+            const width = container.clientWidth || 260; // 260 als Fallback entsprechend CSS
+            const height = container.clientHeight || 260;
+            
+            previewCamera.aspect = width / height;
+            previewCamera.updateProjectionMatrix();
+            previewRenderer.setSize(width, height);
+        }
+
+        function closeBallModal() {
+            isModalOpen = false;
+            document.getElementById('ball-modal').style.display = 'none';
+        }
+
+        // === HAUPTSPIEL BAU-FUNKTIONEN ===
+        function createEntity(mesh, body) {
+            scene.add(mesh);
+            world.addBody(body);
+            if (body.mass > 0) {
+                meshes.push(mesh);
+                bodies.push(body);
+            }
+        }
+
+        function buildPlayfield() {
+            const floorGeo = new THREE.BoxGeometry(14, 0.2, 22);
+            const floorMesh = new THREE.Mesh(floorGeo, materialConfig.board);
+            floorMesh.receiveShadow = true;
+            floorMesh.position.set(0, -0.1, 0);
+            
+            const floorBody = new CANNON.Body({ mass: 0, material: physicsMaterials.default });
+            floorBody.addShape(new CANNON.Box(new CANNON.Vec3(7, 0.1, 11)));
+            floorBody.position.set(0, -0.1, 0);
+            createEntity(floorMesh, floorBody);
+
+            function addWall(x, y, z, w, h, d, angleY = 0) {
+                const geo = new THREE.BoxGeometry(w, h, d);
+                const mesh = new THREE.Mesh(geo, materialConfig.wall);
+                mesh.position.set(x, y, z);
+                mesh.rotation.y = angleY;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                const body = new CANNON.Body({ mass: 0, material: physicsMaterials.wall });
+                body.addShape(new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2)));
+                body.position.set(x, y, z);
+                body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angleY);
+                createEntity(mesh, body);
+            }
+
+            addWall(-5, 0.5, 0, 1, 2, 20); // Links
+            addWall(6, 0.5, 0, 1, 2, 20);  // Rechts
+            addWall(-1, 0.5, -9.5, 9, 2, 1); // Oben
+            addWall(4, 0.5, 1.5, 0.5, 2, 17); // Plunger-Trennwand
+            addWall(4.5, 0.5, -8.5, 3.5, 2, 0.5, -Math.PI / 4); // Deflektor
+            addWall(-3.8, 0.5, 7.5, 3, 2, 0.5, -Math.PI / 5); // Trichter Links
+            addWall(2.8, 0.5, 7.5, 3, 2, 0.5, Math.PI / 5);  // Trichter Rechts
+        }
+
+        function buildBumpers() {
+            const bumperPos = [{x: -1.5, z: -4}, {x: 1.5, z: -4}, {x: 0, z: -6}];
+            bumperPos.forEach(pos => {
+                const radius = 0.8;
+                const geo = new THREE.CylinderGeometry(radius, radius, 1, 16);
+                const mesh = new THREE.Mesh(geo, materialConfig.bumper);
+                mesh.position.set(pos.x, 0.5, pos.z);
+                mesh.castShadow = true;
+
+                const body = new CANNON.Body({ mass: 0, material: physicsMaterials.bumper });
+                body.addShape(new CANNON.Sphere(radius));
+                body.position.set(pos.x, 0.5, pos.z);
+                
+                body.addEventListener("collide", (e) => {
+                    score += 100;
+                    if(scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
+                    mesh.scale.set(1.2, 1.2, 1.2);
+                    setTimeout(() => mesh.scale.set(1, 1, 1), 100);
+                });
+
+                createEntity(mesh, body);
+            });
+        }
+
+        function buildFlippers() {
+            const width = 2.4, height = 0.8, depth = 0.5;
+
+            // Linker Flipper
+            const leftGeo = new THREE.BoxGeometry(width, height, depth);
+            leftGeo.translate(width/2, 0, 0); 
+            leftFlipperMesh = new THREE.Mesh(leftGeo, materialConfig.flipper);
+            leftFlipperMesh.castShadow = true;
+
+            leftFlipperBody = new CANNON.Body({ mass: 5, material: physicsMaterials.flipper });
+            leftFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)), new CANNON.Vec3(width/2, 0, 0));
+            leftFlipperBody.position.set(-2.5, 0.5, 8.5); 
+            
+            const leftBase = new CANNON.Body({ mass: 0 });
+            leftBase.position.set(-2.5, 0.5, 8.5);
+            world.addBody(leftBase);
+
+            leftHinge = new CANNON.HingeConstraint(leftBase, leftFlipperBody, {
+                pivotA: new CANNON.Vec3(0,0,0), axisA: new CANNON.Vec3(0,1,0),
+                pivotB: new CANNON.Vec3(0,0,0), axisB: new CANNON.Vec3(0,1,0)
+            });
+            world.addConstraint(leftHinge);
+            createEntity(leftFlipperMesh, leftFlipperBody);
+
+            // Rechter Flipper
+            const rightGeo = new THREE.BoxGeometry(width, height, depth);
+            rightGeo.translate(-width/2, 0, 0);
+            rightFlipperMesh = new THREE.Mesh(rightGeo, materialConfig.flipper);
+            rightFlipperMesh.castShadow = true;
+
+            rightFlipperBody = new CANNON.Body({ mass: 5, material: physicsMaterials.flipper });
+            rightFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)), new CANNON.Vec3(-width/2, 0, 0));
+            rightFlipperBody.position.set(1.5, 0.5, 8.5);
+            
+            const rightBase = new CANNON.Body({ mass: 0 });
+            rightBase.position.set(1.5, 0.5, 8.5);
+            world.addBody(rightBase);
+
+            rightHinge = new CANNON.HingeConstraint(rightBase, rightFlipperBody, {
+                pivotA: new CANNON.Vec3(0,0,0), axisA: new CANNON.Vec3(0,1,0),
+                pivotB: new CANNON.Vec3(0,0,0), axisB: new CANNON.Vec3(0,1,0)
+            });
+            world.addConstraint(rightHinge);
+            createEntity(rightFlipperMesh, rightFlipperBody);
+        }
+
+        function buildPlunger() {
+            const geo = new THREE.BoxGeometry(0.8, 1, 1);
+            plungerMesh = new THREE.Mesh(geo, materialConfig.plunger);
+            plungerMesh.position.set(5, 0.5, 8.5);
+            plungerMesh.castShadow = true;
+            scene.add(plungerMesh);
+        }
+
+        function buildBall() {
+            const radius = 0.4;
+            const geo = new THREE.SphereGeometry(radius, 32, 32);
+            // Nutzt materialConfig.ball, welches auf den Start-Ball gesetzt ist
+            ballMesh = new THREE.Mesh(geo, materialConfig.ball);
+            ballMesh.castShadow = true;
+
+            ballBody = new CANNON.Body({ 
+                mass: 1, 
+                material: physicsMaterials.ball,
+                linearDamping: 0.1,
+                angularDamping: 0.1
+            });
+            ballBody.addShape(new CANNON.Sphere(radius));
+            
+            createEntity(ballMesh, ballBody);
+            resetBall();
+        }
+
+        function resetBall() {
+            ballBody.position.set(5, 0.4, 7); 
+            ballBody.velocity.set(0, 0, 0);
+            ballBody.angularVelocity.set(0, 0, 0);
+        }
+
+        // === STEUERUNG ===
+        function setupInput() {
+            const leftZone = document.getElementById('left-touch');
+            const rightZone = document.getElementById('right-touch');
+            const plungerContainer = document.getElementById('plunger-container');
+            const plungerHandle = document.getElementById('plunger-handle');
+
+            leftZone.addEventListener('pointerdown', (e) => { e.preventDefault(); state.leftFlipper = true; leftZone.classList.add('active'); leftZone.setPointerCapture(e.pointerId); });
+            leftZone.addEventListener('pointerup', (e) => { state.leftFlipper = false; leftZone.classList.remove('active'); leftZone.releasePointerCapture(e.pointerId); });
+            leftZone.addEventListener('pointercancel', () => { state.leftFlipper = false; leftZone.classList.remove('active'); });
+
+            rightZone.addEventListener('pointerdown', (e) => { e.preventDefault(); state.rightFlipper = true; rightZone.classList.add('active'); rightZone.setPointerCapture(e.pointerId); });
+            rightZone.addEventListener('pointerup', (e) => { state.rightFlipper = false; rightZone.classList.remove('active'); rightZone.releasePointerCapture(e.pointerId); });
+            rightZone.addEventListener('pointercancel', () => { state.rightFlipper = false; rightZone.classList.remove('active'); });
+
+            plungerContainer.addEventListener('pointerdown', (e) => {
+                e.preventDefault(); e.stopPropagation();
+                state.plungerDrag = true; state.plungerStartY = e.clientY;
+                plungerContainer.setPointerCapture(e.pointerId);
+            });
+            
+            plungerContainer.addEventListener('pointermove', (e) => {
+                if (state.plungerDrag) {
+                    const dy = e.clientY - state.plungerStartY;
+                    state.plungerPull = Math.max(0, Math.min(1, dy / 100)); 
+                    plungerHandle.style.transform = `translateY(${state.plungerPull * 100}px)`;
+                }
+            });
+
+            const releasePlunger = (e) => {
+                if (state.plungerDrag) {
+                    state.plungerDrag = false;
+                    firePlunger(state.plungerPull);
+                    state.plungerPull = 0;
+                    plungerHandle.style.transform = `translateY(0px)`;
+                    plungerContainer.releasePointerCapture(e.pointerId);
+                }
+            };
+
+            plungerContainer.addEventListener('pointerup', releasePlunger);
+            plungerContainer.addEventListener('pointercancel', releasePlunger);
+        }
+
+        function firePlunger(powerFactor) {
+            if (ballBody.position.x > 4 && ballBody.position.z > 5) {
+                const force = 35 + (powerFactor * 50); 
+                ballBody.applyImpulse(new CANNON.Vec3(0, 0, -force), ballBody.position);
+            }
+        }
+
+        function updateFlippers() {
+            const motorSpeed = 25;
+            leftHinge.enableMotor();
+            leftHinge.setMotorSpeed(state.leftFlipper ? -motorSpeed : motorSpeed); 
+            rightHinge.enableMotor();
+            rightHinge.setMotorSpeed(state.rightFlipper ? motorSpeed : -motorSpeed); 
+
+            // Limits
+            const leftEuler = new CANNON.Vec3(); leftFlipperBody.quaternion.toEuler(leftEuler);
+            if (leftEuler.y < -0.5) { leftFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -0.5); leftFlipperBody.angularVelocity.set(0,0,0); } 
+            else if (leftEuler.y > 0.3) { leftFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), 0.3); leftFlipperBody.angularVelocity.set(0,0,0); }
+
+            const rightEuler = new CANNON.Vec3(); rightFlipperBody.quaternion.toEuler(rightEuler);
+            if (rightEuler.y > 0.5) { rightFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), 0.5); rightFlipperBody.angularVelocity.set(0,0,0); } 
+            else if (rightEuler.y < -0.3) { rightFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -0.3); rightFlipperBody.angularVelocity.set(0,0,0); }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // === HAUPTSCHLEIFE ===
+        const timeStep = 1 / 60;
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!isModalOpen) {
+                // Spiel pausiert leicht, wenn Modal offen ist (oder läuft weiter, Rendering ist aber getrennt)
+                world.step(timeStep);
+                updateFlippers();
+
+                plungerMesh.position.z = 8.5 + (state.plungerPull * 1.5);
+
+                if (ballBody.position.z > 12) resetBall();
+
+                for (let i = 0; i < bodies.length; i++) {
+                    meshes[i].position.copy(bodies[i].position);
+                    meshes[i].quaternion.copy(bodies[i].quaternion);
+                }
+
+                renderer.render(scene, camera);
+            } else {
+                // Wenn Modal offen ist, rendere die Detail-Szene
+                if (previewAutoRotate) {
+                    previewBallMesh.rotation.y += 0.005;
+                    previewBallMesh.rotation.x += 0.002;
+                }
+                previewRenderer.render(previewScene, previewCamera);
+            }
+        }
+
+        window.onload = init;
+
+    </script>
+</body>
+</html>
