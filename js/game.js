@@ -236,10 +236,22 @@ function updateLivesDisplay() {
 }
 
 function gameOver() {
-    // Spiel pausieren
+    // Game Over UI anzeigen und finalen Score setzen
+    document.getElementById('final-score').innerText = score.toString().padStart(6, '0');
+    document.getElementById('game-over-screen').style.display = 'flex';
+    
+    resetBall(); // Kugel sofort an den Start zurücksetzen, damit sie nicht weiter fällt
+}
+
+function restartGame() {
+    // Werte zurücksetzen
     lives = MAX_LIVES;
     score = 0;
     updateLivesDisplay();
     if (scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
     resetBall();
+    if (typeof dropTargetBank !== 'undefined') dropTargetBank.resetAll();
+    
+    // Screen ausblenden und weiterspielen
+    document.getElementById('game-over-screen').style.display = 'none';
 }

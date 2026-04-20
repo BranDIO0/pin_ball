@@ -109,6 +109,11 @@ class DropTargetBank {
             }, 500);
         }
     }
+
+    // Stellt alle Targets sofort wieder auf (wird beim Neustart des Spiels genutzt)
+    resetAll() {
+        this.targets.forEach(t => t.reset());
+    }
 }
 
 // Globale Initialisierung
