@@ -48,7 +48,17 @@ body {
     padding: 10px 30px;
     text-align: center;
     box-shadow: 0 0 15px rgba(0, 229, 255, 0.4), inset 0 0 10px rgba(0, 229, 255, 0.2);
-    margin: 0 auto;
+    margin: 0 15px;
+}
+
+.lives-board {
+    background: rgba(10, 10, 20, 0.8);
+    border: 2px solid #ff007f;
+    border-radius: 10px;
+    padding: 10px 30px;
+    text-align: center;
+    box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 10px rgba(255, 0, 127, 0.2);
+    margin: 0 15px;
 }
 
 .score-label {
@@ -64,6 +74,21 @@ body {
     font-size: 32px;
     font-weight: 700;
     text-shadow: 0 0 10px #00e5ff;
+}
+
+.lives-label {
+    display: block;
+    color: #00e5ff;
+    font-size: 12px;
+    letter-spacing: 3px;
+    margin-bottom: 5px;
+}
+
+.lives-value {
+    color: #ff007f;
+    font-size: 32px;
+    font-weight: 700;
+    text-shadow: 0 0 10px #ff007f;
 }
 
 /* --- Buttons --- */
