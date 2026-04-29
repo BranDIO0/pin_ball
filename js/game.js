@@ -302,6 +302,34 @@ function updateGameLogic() {
     }
 }
 
+// === HIGHSCORE LOGIK ===
+function getHighscores() {
+    const scores = localStorage.getItem('pinballHighscores');
+    return scores ? JSON.parse(scores) : [0, 0, 0];
+}
+
+function saveHighscore(newScore) {
+    let scores = getHighscores();
+    scores.push(newScore);
+    scores.sort((a, b) => b - a); // Absteigend sortieren
+    scores = scores.slice(0, 3); // Nur Top 3 behalten
+    localStorage.setItem('pinballHighscores', JSON.stringify(scores));
+    return scores;
+}
+
+function updateLeaderboardUI() {
+    const scores = getHighscores();
+    const list = document.getElementById('leaderboard-list');
+    if (list) {
+        list.innerHTML = '';
+        scores.forEach((s, index) => {
+            const li = document.createElement('li');
+            li.innerText = `${index + 1}. ${s.toString().padStart(6, '0')}`;
+            list.appendChild(li);
+        });
+    }
+}
+
 // === LIVES & GAME OVER ===
 function updateLivesDisplay() {
     if (livesElement) {
@@ -312,6 +340,11 @@ function updateLivesDisplay() {
 function gameOver() {
     // Game Over UI anzeigen und finalen Score setzen
     document.getElementById('final-score').innerText = score.toString().padStart(6, '0');
+    
+    // Highscore speichern und Bestenliste aktualisieren
+    saveHighscore(score);
+    updateLeaderboardUI();
+    
     document.getElementById('game-over-screen').style.display = 'flex';
 
     resetBall(); // Kugel sofort an den Start zurücksetzen, damit sie nicht weiter fällt

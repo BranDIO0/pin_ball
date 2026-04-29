@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -77,7 +77,18 @@
     <div id="game-over-screen">
         <div class="game-over-title">GAME OVER</div>
         <div class="game-over-score">FINAL SCORE: <span id="final-score">000000</span></div>
-        <button class="btn" onclick="restartGame()" style="font-size: 20px; padding: 15px 40px;">NEUES SPIEL</button>
+        
+        <!-- Bestenliste (Top 3) -->
+        <div class="leaderboard">
+            <h3>HIGHSCORES</h3>
+            <ol id="leaderboard-list">
+                <li>1. 000000</li>
+                <li>2. 000000</li>
+                <li>3. 000000</li>
+            </ol>
+        </div>
+
+        <button class="btn" onclick="restartGame()" style="font-size: 20px; padding: 15px 40px; margin-top: 20px;">NEUES SPIEL</button>
     </div>
 
     <div id="loading">Lade Physik & 3D...</div>
