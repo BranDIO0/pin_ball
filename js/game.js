@@ -5,7 +5,7 @@ function buildPlayfield() {
     const floorMesh = new THREE.Mesh(floorGeo, materialConfig.board);
     floorMesh.receiveShadow = true;
     floorMesh.position.set(0, -0.1, 0);
-    
+
     const floorBody = new CANNON.Body({ mass: 0, material: physicsMaterials.default });
     floorBody.addShape(new CANNON.Box(new CANNON.Vec3(7, 0.1, 11)));
     floorBody.position.set(0, -0.1, 0);
@@ -20,7 +20,7 @@ function buildPlayfield() {
         mesh.receiveShadow = true;
 
         const body = new CANNON.Body({ mass: 0, material: physicsMaterials.wall });
-        body.addShape(new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2)));
+        body.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
         body.position.set(x, y, z);
         body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angleY);
         createEntity(mesh, body);
@@ -37,7 +37,7 @@ function buildPlayfield() {
 
 // === BUMPER BAU ===
 function buildBumpers() {
-    const bumperPos = [{x: -2, z: -4}, {x: 2, z: -4}, {x: 0, z: -6}];
+    const bumperPos = [{ x: -2, z: -4 }, { x: 2, z: -4 }, { x: 0, z: -6 }];
     bumperPos.forEach(pos => {
         const radius = BUMPER_RADIUS;
         const geo = new THREE.CylinderGeometry(radius, radius, 1, 16);
@@ -48,12 +48,86 @@ function buildBumpers() {
         const body = new CANNON.Body({ mass: 0, material: physicsMaterials.bumper });
         body.addShape(new CANNON.Sphere(radius));
         body.position.set(pos.x, 0.5, pos.z);
-        
+
         body.addEventListener("collide", (e) => {
             score += 100;
-            if(scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
+            if (scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
             mesh.scale.set(1.2, 1.2, 1.2);
             setTimeout(() => mesh.scale.set(1, 1, 1), 100);
+        });
+
+        createEntity(mesh, body);
+    });
+}
+
+// === SLINGSHOT BAU ===
+function buildSlingshots() {
+    const width = 3;
+    const height = 1;
+    const depth = 0.5;
+    // Wand-Form statt Dreieck
+    const slingshotGeo = new THREE.BoxGeometry(width, height, depth);
+
+    // Links und rechts direkt über den Flipperfingern
+    const positions = [
+        { x: -4, z: 6, rotationY: -Math.PI / 3.5 }, // Links
+        { x: 3, z: 6, rotationY: Math.PI / 3.5 + Math.PI }  // Rechts
+    ];
+
+    positions.forEach(pos => {
+        // Nutzen das wall-Material für die Optik, aber behalten die Bumper-Physik für den Kick
+        const mesh = new THREE.Mesh(slingshotGeo, materialConfig.bumper);
+        mesh.position.set(pos.x, 0.5, pos.z);
+        mesh.rotation.y = pos.rotationY;
+        mesh.castShadow = true;
+
+        // Statische Body-Box für Cannon.js
+        const body = new CANNON.Body({ mass: 0, material: physicsMaterials.bumper });
+        body.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)));
+        body.position.set(pos.x, 0.5, pos.z);
+        body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), pos.rotationY);
+
+        let lastKickTime = 0;
+
+        body.addEventListener("collide", (e) => {
+            const now = Date.now();
+            // Glitch-Schutz: 100ms Cooldown für den Kick
+            if (now - lastKickTime < 100) return;
+
+            if (e.body === ballBody) {
+                lastKickTime = now;
+
+                // Normale des Aufpralls ermitteln
+                let impactNormal = new CANNON.Vec3();
+                impactNormal.copy(e.contact.ni);
+
+                // ni zeigt von bi nach bj. Wenn bi die Kugel ist, zeigt die Normale zur Schleuder.
+                // Wir negieren den Vektor, um die Kugel wegzuschleudern.
+                if (e.contact.bi === ballBody) {
+                    impactNormal.negate(impactNormal);
+                }
+
+                // Kick nur in der X-Z Ebene
+                impactNormal.y = 0;
+                impactNormal.normalize();
+
+                // Starker Kick über applyImpulse
+                const kickStrength = 20;
+                const impulse = new CANNON.Vec3(
+                    impactNormal.x * kickStrength,
+                    0,
+                    impactNormal.z * kickStrength
+                );
+
+                ballBody.applyImpulse(impulse, ballBody.position);
+
+                // Score und visuelles Feedback
+                score += 50;
+                if (scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
+
+                mesh.scale.set(1.2, 1.2, 1.2);
+                setTimeout(() => mesh.scale.set(1, 1, 1), 100);
+            }
         });
 
         createEntity(mesh, body);
@@ -69,42 +143,42 @@ function buildFlippers() {
 
     // Linker Flipper
     const leftGeo = new THREE.BoxGeometry(width, height, depth);
-    leftGeo.translate(width/2, 0, 0); 
+    leftGeo.translate(width / 2, 0, 0);
     leftFlipperMesh = new THREE.Mesh(leftGeo, materialConfig.flipper);
     leftFlipperMesh.castShadow = true;
 
     leftFlipperBody = new CANNON.Body({ mass: 5, material: physicsMaterials.flipper });
-    leftFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)), new CANNON.Vec3(width/2, 0, 0));
-    leftFlipperBody.position.set(-2.3 - GAP/2, 0.5, 7.5); 
-    
+    leftFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)), new CANNON.Vec3(width / 2, 0, 0));
+    leftFlipperBody.position.set(-2.3 - GAP / 2, 0.5, 7.5);
+
     const leftBase = new CANNON.Body({ mass: 0 });
-    leftBase.position.set(-2.3 - GAP/2, 0.5, 7.5);
+    leftBase.position.set(-2.3 - GAP / 2, 0.5, 7.5);
     world.addBody(leftBase);
 
     leftHinge = new CANNON.HingeConstraint(leftBase, leftFlipperBody, {
-        pivotA: new CANNON.Vec3(0,0,0), axisA: new CANNON.Vec3(0,1,0),
-        pivotB: new CANNON.Vec3(0,0,0), axisB: new CANNON.Vec3(0,1,0)
+        pivotA: new CANNON.Vec3(0, 0, 0), axisA: new CANNON.Vec3(0, 1, 0),
+        pivotB: new CANNON.Vec3(0, 0, 0), axisB: new CANNON.Vec3(0, 1, 0)
     });
     world.addConstraint(leftHinge);
     createEntity(leftFlipperMesh, leftFlipperBody);
 
     // Rechter Flipper
     const rightGeo = new THREE.BoxGeometry(width, height, depth);
-    rightGeo.translate(-width/2, 0, 0);
+    rightGeo.translate(-width / 2, 0, 0);
     rightFlipperMesh = new THREE.Mesh(rightGeo, materialConfig.flipper);
     rightFlipperMesh.castShadow = true;
 
     rightFlipperBody = new CANNON.Body({ mass: 5, material: physicsMaterials.flipper });
-    rightFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)), new CANNON.Vec3(-width/2, 0, 0));
-    rightFlipperBody.position.set(1.3 + GAP/2, 0.5, 7.5);
-    
+    rightFlipperBody.addShape(new CANNON.Box(new CANNON.Vec3(width / 2, height / 2, depth / 2)), new CANNON.Vec3(-width / 2, 0, 0));
+    rightFlipperBody.position.set(1.3 + GAP / 2, 0.5, 7.5);
+
     const rightBase = new CANNON.Body({ mass: 0 });
-    rightBase.position.set(1.3 + GAP/2, 0.5, 7.5);
+    rightBase.position.set(1.3 + GAP / 2, 0.5, 7.5);
     world.addBody(rightBase);
 
     rightHinge = new CANNON.HingeConstraint(rightBase, rightFlipperBody, {
-        pivotA: new CANNON.Vec3(0,0,0), axisA: new CANNON.Vec3(0,1,0),
-        pivotB: new CANNON.Vec3(0,0,0), axisB: new CANNON.Vec3(0,1,0)
+        pivotA: new CANNON.Vec3(0, 0, 0), axisA: new CANNON.Vec3(0, 1, 0),
+        pivotB: new CANNON.Vec3(0, 0, 0), axisB: new CANNON.Vec3(0, 1, 0)
     });
     world.addConstraint(rightHinge);
     createEntity(rightFlipperMesh, rightFlipperBody);
@@ -151,20 +225,20 @@ function buildBall() {
     ballMesh = new THREE.Mesh(geo, materialConfig.ball);
     ballMesh.castShadow = true;
 
-    ballBody = new CANNON.Body({ 
-        mass: 1, 
+    ballBody = new CANNON.Body({
+        mass: 1,
         material: physicsMaterials.ball,
         linearDamping: 0.1,
         angularDamping: 0.1
     });
     ballBody.addShape(new CANNON.Sphere(radius));
-    
+
     createEntity(ballMesh, ballBody);
     resetBall();
 }
 
 function resetBall() {
-    ballBody.position.set(5, 0.4, 7); 
+    ballBody.position.set(5, 0.4, 7);
     ballBody.velocity.set(0, 0, 0);
     ballBody.angularVelocity.set(0, 0, 0);
 }
@@ -173,29 +247,29 @@ function resetBall() {
 function updateFlippers() {
     const motorSpeed = 25;
     leftHinge.enableMotor();
-    leftHinge.setMotorSpeed(state.leftFlipper ? -motorSpeed : motorSpeed); 
+    leftHinge.setMotorSpeed(state.leftFlipper ? -motorSpeed : motorSpeed);
     rightHinge.enableMotor();
-    rightHinge.setMotorSpeed(state.rightFlipper ? motorSpeed : -motorSpeed); 
+    rightHinge.setMotorSpeed(state.rightFlipper ? motorSpeed : -motorSpeed);
 
     // Limits
-    const leftEuler = new CANNON.Vec3(); 
+    const leftEuler = new CANNON.Vec3();
     leftFlipperBody.quaternion.toEuler(leftEuler);
-    if (leftEuler.y < -0.5) { 
-        leftFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -0.5); 
-        leftFlipperBody.angularVelocity.set(0,0,0); 
-    } else if (leftEuler.y > 0.3) { 
-        leftFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), 0.3); 
-        leftFlipperBody.angularVelocity.set(0,0,0); 
+    if (leftEuler.y < -0.5) {
+        leftFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -0.5);
+        leftFlipperBody.angularVelocity.set(0, 0, 0);
+    } else if (leftEuler.y > 0.3) {
+        leftFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), 0.3);
+        leftFlipperBody.angularVelocity.set(0, 0, 0);
     }
 
-    const rightEuler = new CANNON.Vec3(); 
+    const rightEuler = new CANNON.Vec3();
     rightFlipperBody.quaternion.toEuler(rightEuler);
-    if (rightEuler.y > 0.5) { 
-        rightFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), 0.5); 
-        rightFlipperBody.angularVelocity.set(0,0,0); 
-    } else if (rightEuler.y < -0.3) { 
-        rightFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0,1,0), -0.3); 
-        rightFlipperBody.angularVelocity.set(0,0,0); 
+    if (rightEuler.y > 0.5) {
+        rightFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), 0.5);
+        rightFlipperBody.angularVelocity.set(0, 0, 0);
+    } else if (rightEuler.y < -0.3) {
+        rightFlipperBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), -0.3);
+        rightFlipperBody.angularVelocity.set(0, 0, 0);
     }
 }
 
@@ -210,7 +284,7 @@ function updatePlunger() {
 
 function firePlunger(powerFactor) {
     if (ballBody.position.x > 4 && ballBody.position.z > 5) {
-        const force = 35 + (powerFactor * 50); 
+        const force = 35 + (powerFactor * 50);
         ballBody.applyImpulse(new CANNON.Vec3(0, 0, -force), ballBody.position);
     }
 }
@@ -239,7 +313,7 @@ function gameOver() {
     // Game Over UI anzeigen und finalen Score setzen
     document.getElementById('final-score').innerText = score.toString().padStart(6, '0');
     document.getElementById('game-over-screen').style.display = 'flex';
-    
+
     resetBall(); // Kugel sofort an den Start zurücksetzen, damit sie nicht weiter fällt
 }
 
@@ -251,7 +325,7 @@ function restartGame() {
     if (scoreElement) scoreElement.innerText = score.toString().padStart(6, '0');
     resetBall();
     if (typeof dropTargetBank !== 'undefined') dropTargetBank.resetAll();
-    
+
     // Screen ausblenden und weiterspielen
     document.getElementById('game-over-screen').style.display = 'none';
 }

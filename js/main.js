@@ -13,6 +13,7 @@ function init() {
     // Spielfeld bauen
     buildPlayfield();
     buildBumpers();
+    buildSlingshots();
     buildFlippers();
     buildPlunger();
     buildBall();
